@@ -19,11 +19,11 @@ resource "aws_internet_gateway" "this" {
 
 # Public Subnets
 resource "aws_subnet" "public" {
-  for_each = { for idx, cidr in var.public_subnets : idx => cidr }
+  for_each = { for idx, cidr in var.public_subnets : cidr => idx }
 
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = each.value
-  availability_zone       = data.aws_availability_zones.available.names[each.key] # ✅ Spread across AZs
+  cidr_block              = each.key
+  availability_zone       = data.aws_availability_zones.available.names[each.value]
   map_public_ip_on_launch = true
 
   tags = {
@@ -33,11 +33,11 @@ resource "aws_subnet" "public" {
 
 # Private Subnets
 resource "aws_subnet" "private" {
-  for_each = { for idx, cidr in var.private_subnets : idx => cidr }
+  for_each = { for idx, cidr in var.private_subnets : cidr => idx }
 
   vpc_id            = aws_vpc.this.id
-  cidr_block        = each.value
-  availability_zone = data.aws_availability_zones.available.names[each.key] # ✅ Spread across AZs
+  cidr_block        = each.key
+  availability_zone = data.aws_availability_zones.available.names[each.value]
 
   tags = {
     Name = "${var.vpc_name}-private-${each.key}"
