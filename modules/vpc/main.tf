@@ -1,4 +1,7 @@
-
+# Fetch available AZs dynamically
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
 resource "aws_vpc" "this" {
   cidr_block           = var.cidr_block
@@ -14,17 +17,38 @@ resource "aws_internet_gateway" "this" {
   tags = { Name = "${var.vpc_name}-igw" }
 }
 
+# Public Subnets
 resource "aws_subnet" "public" {
-  for_each = toset(var.public_subnets)
-  vpc_id   = aws_vpc.this.id
-  cidr_block = each.value
+  for_each = { for idx, cidr in var.public_subnets : idx => cidr }
+
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = each.value
+  availability_zone       = data.aws_availability_zones.available.names[each.key] # ✅ Spread across AZs
   map_public_ip_on_launch = true
-  tags = { Name = "${var.vpc_name}-public-${each.key}" }
+
+  tags = {
+    Name = "${var.vpc_name}-public-${each.key}"
+  }
 }
 
+# Private Subnets
 resource "aws_subnet" "private" {
-  for_each = toset(var.private_subnets)
-  vpc_id   = aws_vpc.this.id
-  cidr_block = each.value
-  tags = { Name = "${var.vpc_name}-private-${each.key}" }
+  for_each = { for idx, cidr in var.private_subnets : idx => cidr }
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = each.value
+  availability_zone = data.aws_availability_zones.available.names[each.key] # ✅ Spread across AZs
+
+  tags = {
+    Name = "${var.vpc_name}-private-${each.key}"
+  }
+}
+
+# Export Subnet IDs for use in other modules
+output "private_subnets_ids" {
+  value = [for s in aws_subnet.private : s.id]
+}
+
+output "public_subnets_ids" {
+  value = [for s in aws_subnet.public : s.id]
 }
